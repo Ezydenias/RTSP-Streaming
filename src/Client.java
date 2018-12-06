@@ -3,6 +3,8 @@ Client
 usage: java Client [Server hostname] [Server RTSP listening port] [Video file requested]
 ---------------------- */
 
+import com.sun.xml.internal.ws.util.StringUtils;
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -23,7 +25,14 @@ public class Client {
     private JPanel mainPanel = new JPanel();
     private JPanel buttonPanel = new JPanel();
     private JLabel iconLabel = new JLabel();
+    private JLabel statsLabel = new JLabel();
     private ImageIcon icon;
+
+    // Statistical variables
+    private int droppedPackages = 0;
+    private int receivedPackages = 0;
+    private int correctedPackages = 0; // Packages we could correct
+    private int uncorrectablePackages = 0; // Packages we couldn't correct
 
     // RTP variables:
     // ----------------
@@ -86,13 +95,17 @@ public class Client {
         // Image display label
         iconLabel.setIcon(null);
 
+        // Restrict width of stats label
+        statsLabel.setPreferredSize(new Dimension(150, 200));
+
         // frame layout
         mainPanel.setLayout(new BorderLayout());
         mainPanel.add(iconLabel, BorderLayout.CENTER);
+        mainPanel.add(statsLabel, BorderLayout.LINE_END);
         mainPanel.add(buttonPanel, BorderLayout.PAGE_END);
 
         f.getContentPane().add(mainPanel, BorderLayout.CENTER);
-        f.setSize(new Dimension(390, 370));
+        f.setSize(new Dimension(540, 370));
         f.setVisible(true);
 
         // init timer
@@ -267,6 +280,9 @@ public class Client {
     // ------------------------------------
 
     class timerListener implements ActionListener {
+
+        private int lastReceivedPackage = 0;
+
         public void actionPerformed(ActionEvent e) {
 
             // Construct a DatagramPacket to receive data from the UDP socket
@@ -278,6 +294,7 @@ public class Client {
 
                 // create an RTPpacket object from the DP
                 RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
+                receivedPackages++;
 
                 // print important header fields of the RTP packet received:
                 System.out.println(
@@ -291,18 +308,34 @@ public class Client {
                 // print header bitstream:
                 rtp_packet.printheader();
 
-                // get the payload bitstream from the RTPpacket object
-                int payload_length = rtp_packet.getpayload_length();
-                byte[] payload = new byte[payload_length];
-                rtp_packet.getpayload(payload);
+                if (rtp_packet.getsequencenumber() - lastReceivedPackage > 1) {
+                    droppedPackages += rtp_packet.getsequencenumber() - lastReceivedPackage - 1;
+                }
+                lastReceivedPackage = rtp_packet.getsequencenumber();
 
-                // get an Image object from the payload bitstream
-                Toolkit toolkit = Toolkit.getDefaultToolkit();
-                Image image = toolkit.createImage(payload, 0, payload_length);
+                // Putting all of this in one format string makes it utterly unreadable
+                String stats =
+                        String.format("Received: %d", receivedPackages) + "<br>" +
+                        String.format("Dropped: %d (%.1f%%)", droppedPackages, droppedPackages / (double)(receivedPackages+droppedPackages) * 100) + "<br>" +
+                        String.format("Corrected: %d", correctedPackages) + "<br>" +
+                        String.format("Uncorrectable: %d", uncorrectablePackages)
+                ;
+                statsLabel.setText("<html>" + stats);
 
-                // display the image as an ImageIcon object
-                icon = new ImageIcon(image);
-                iconLabel.setIcon(icon);
+                if (rtp_packet.PayloadType == MJPEG_TYPE) {
+                    // get the payload bitstream from the RTPpacket object
+                    int payload_length = rtp_packet.getpayload_length();
+                    byte[] payload = new byte[payload_length];
+                    rtp_packet.getpayload(payload);
+
+                    // get an Image object from the payload bitstream
+                    Toolkit toolkit = Toolkit.getDefaultToolkit();
+                    Image image = toolkit.createImage(payload, 0, payload_length);
+
+                    // display the image as an ImageIcon object
+                    icon = new ImageIcon(image);
+                    iconLabel.setIcon(icon);
+                }
             } catch (InterruptedIOException iioe) {
                 // System.out.println("Nothing to read");
             } catch (IOException ioe) {
