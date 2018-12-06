@@ -47,6 +47,8 @@ public class Server extends JFrame implements ActionListener {
   static final int PLAY = 4;
   static final int PAUSE = 5;
   static final int TEARDOWN = 6;
+  static final int OPTIONS = 7;
+  static final int DESCRIBE = 8;
 
   static int state; // RTSP Server state == INIT or READY or PLAY
   Socket RTSPsocket; // socket used to send/receive RTSP messages
@@ -142,6 +144,10 @@ public class Server extends JFrame implements ActionListener {
 
         // init RTP socket
         theServer.RTPsocket = new DatagramSocket();
+      } else if (request_type == OPTIONS) {
+        theServer.handleOptions();
+      } else if (request_type == DESCRIBE) {
+        theServer.handleDescribe();
       }
     }
 
@@ -176,8 +182,32 @@ public class Server extends JFrame implements ActionListener {
         theServer.RTPsocket.close();
 
         System.exit(0);
+      } else if (request_type == OPTIONS) {
+        theServer.handleOptions();
+      } else if (request_type == DESCRIBE) {
+        theServer.handleDescribe();
       }
     }
+  }
+
+  private void handleOptions() {
+    String[] body = {
+            "Public: DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN"
+    };
+    send_RTSP_response(body);
+  }
+
+  private void handleDescribe() {
+    String[] body = {
+            "Content-Type: application/sdp",
+            "",
+            "v=0",
+            "o=- " + RTSP_ID + " 1 IN IP4 127.0.0.1",
+            "s=Demo Movie",
+            "i=HTW Dresden RTSP demo movie",
+            "m=video 25000 udp 26"
+    };
+    send_RTSP_response(body);
   }
 
   // ------------------------
@@ -245,6 +275,8 @@ public class Server extends JFrame implements ActionListener {
       else if (request_type_string.equals("PLAY")) request_type = PLAY;
       else if (request_type_string.equals("PAUSE")) request_type = PAUSE;
       else if (request_type_string.equals("TEARDOWN")) request_type = TEARDOWN;
+      else if (request_type_string.equals("OPTIONS")) request_type = OPTIONS;
+      else if (request_type_string.equals("DESCRIBE")) request_type = DESCRIBE;
 
       if (request_type == SETUP) {
         // extract VideoFileName from RequestLine
@@ -280,14 +312,22 @@ public class Server extends JFrame implements ActionListener {
     return (request_type);
   }
 
+  private void send_RTSP_response() {
+    String[] b = {};
+    send_RTSP_response(b);
+  }
+
   // ------------------------------------
   // Send RTSP Response
   // ------------------------------------
-  private void send_RTSP_response() {
+  private void send_RTSP_response(String[] body) {
     try {
       RTSPBufferedWriter.write("RTSP/1.0 200 OK" + CRLF);
       RTSPBufferedWriter.write("CSeq: " + RTSPSeqNb + CRLF);
       RTSPBufferedWriter.write("Session: " + RTSP_ID + CRLF);
+      for (int i = 0; i < body.length; i++) {
+        RTSPBufferedWriter.write(body[i] + CRLF);
+      }
       RTSPBufferedWriter.write(CRLF);
       RTSPBufferedWriter.flush();
       // System.out.println("RTSP Server - Sent response to Client.");
