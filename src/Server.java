@@ -240,11 +240,10 @@ public class Server extends JFrame implements ActionListener {
       String request_type_string = tokens.nextToken();
 
       // convert to request_type structure:
-      if ((new String(request_type_string)).compareTo("SETUP") == 0) request_type = SETUP;
-      else if ((new String(request_type_string)).compareTo("PLAY") == 0) request_type = PLAY;
-      else if ((new String(request_type_string)).compareTo("PAUSE") == 0) request_type = PAUSE;
-      else if ((new String(request_type_string)).compareTo("TEARDOWN") == 0)
-        request_type = TEARDOWN;
+      if (request_type_string.equals("SETUP")) request_type = SETUP;
+      else if (request_type_string.equals("PLAY")) request_type = PLAY;
+      else if (request_type_string.equals("PAUSE")) request_type = PAUSE;
+      else if (request_type_string.equals("TEARDOWN")) request_type = TEARDOWN;
 
       if (request_type == SETUP) {
         // extract VideoFileName from RequestLine
@@ -269,7 +268,9 @@ public class Server extends JFrame implements ActionListener {
         RTP_dest_port = Integer.parseInt(tokens.nextToken());
       }
       // else LastLine will be the SessionId line ... do not check for now.
-      // TODO Read until end of request (empty line)
+      while (!LastLine.isEmpty()) {
+        LastLine = RTSPBufferedReader.readLine();
+      }
     } catch (Exception ex) {
       System.out.println("Exception caught: " + ex);
       System.exit(0);
@@ -285,7 +286,7 @@ public class Server extends JFrame implements ActionListener {
       RTSPBufferedWriter.write("RTSP/1.0 200 OK" + CRLF);
       RTSPBufferedWriter.write("CSeq: " + RTSPSeqNb + CRLF);
       RTSPBufferedWriter.write("Session: " + RTSP_ID + CRLF);
-      // TODO Send end of response
+      RTSPBufferedWriter.write(CRLF);
       RTSPBufferedWriter.flush();
       // System.out.println("RTSP Server - Sent response to Client.");
     } catch (Exception ex) {
