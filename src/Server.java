@@ -33,7 +33,8 @@ public class Server extends JFrame implements ActionListener {
   static int FRAME_PERIOD = 40; // Frame period of the video to stream, in ms
   static int VIDEO_LENGTH = 500; // length of the video in frames
 
-  Timer timer; // timer used to send the images at the video frame rate
+  private Timer timer; // timer used to send the images at the video frame rate
+  private JSpinner frameDropSpinner;
   byte[] buf; // buffer used to store the images to send to the client
 
   // RTSP variables
@@ -90,8 +91,14 @@ public class Server extends JFrame implements ActionListener {
         });
 
     // GUI:
+    getContentPane().setLayout(new BoxLayout(getContentPane(), BoxLayout.PAGE_AXIS));
+
     label = new JLabel("Send frame #        ", JLabel.CENTER);
-    getContentPane().add(label, BorderLayout.CENTER);
+    getContentPane().add(label);
+
+    SpinnerModel model = new SpinnerNumberModel(0.1, 0.00, 1.00, 0.05);
+    frameDropSpinner = new JSpinner(model);
+    getContentPane().add(frameDropSpinner);
   }
 
   // ------------------------------------
@@ -243,7 +250,7 @@ public class Server extends JFrame implements ActionListener {
         senddp = new DatagramPacket(packet_bits, packet_length, ClientIPAddr, RTP_dest_port);
 
           float v = rand.nextFloat();
-          if (v > 0.10f) {
+          if (v > (Double)frameDropSpinner.getModel().getValue()) {
               RTPsocket.send(senddp);
               // System.out.println("Send frame #"+imagenb);
               // print the header bitstream
