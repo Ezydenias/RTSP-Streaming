@@ -205,7 +205,7 @@ public class Server extends JFrame implements ActionListener {
             "o=- " + RTSP_ID + " 1 IN IP4 127.0.0.1",
             "s=Demo Movie",
             "i=HTW Dresden RTSP demo movie",
-            "m=video 25000 udp 26"
+            "m=video 25000 udp " + MJPEG_TYPE
     };
     send_RTSP_response(body);
   }
