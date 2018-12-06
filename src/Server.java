@@ -59,6 +59,8 @@ public class Server extends JFrame implements ActionListener {
   static int RTSP_ID = 123456; // ID of the RTSP session
   int RTSPSeqNb = 0; // Sequence number of RTSP messages within the session
 
+  static Random rand;
+
   static final String CRLF = "\r\n";
 
   // --------------------------------
@@ -122,6 +124,8 @@ public class Server extends JFrame implements ActionListener {
         new BufferedReader(new InputStreamReader(theServer.RTSPsocket.getInputStream()));
     RTSPBufferedWriter =
         new BufferedWriter(new OutputStreamWriter(theServer.RTSPsocket.getOutputStream()));
+
+    rand = new Random();
 
     // Wait for the SETUP message from the client
     int request_type;
@@ -237,11 +241,17 @@ public class Server extends JFrame implements ActionListener {
 
         // send the packet as a DatagramPacket over the UDP socket
         senddp = new DatagramPacket(packet_bits, packet_length, ClientIPAddr, RTP_dest_port);
-        RTPsocket.send(senddp);
 
-        // System.out.println("Send frame #"+imagenb);
-        // print the header bitstream
-        rtp_packet.printheader();
+          float v = rand.nextFloat();
+          if (v > 0.10f) {
+              RTPsocket.send(senddp);
+              // System.out.println("Send frame #"+imagenb);
+              // print the header bitstream
+              rtp_packet.printheader();
+          } else {
+              System.out.println("Dropped frame " + imagenb);
+          }
+
 
         // update GUI
         label.setText("Send frame #" + imagenb);
