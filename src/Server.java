@@ -217,6 +217,7 @@ public class Server extends JFrame implements ActionListener {
         label.setText("Send frame #" + imagenb);
       } catch (Exception ex) {
         System.out.println("Exception caught: " + ex);
+        ex.printStackTrace();
         System.exit(0);
       }
     } else {
@@ -264,7 +265,7 @@ public class Server extends JFrame implements ActionListener {
       if (request_type == SETUP) {
         // extract RTP_dest_port from LastLine
         tokens = new StringTokenizer(LastLine);
-        for (int i = 0; i < 3; i++) tokens.nextToken(); // skip unused stuff
+        tokens.nextToken("=");
         RTP_dest_port = Integer.parseInt(tokens.nextToken());
       }
       // else LastLine will be the SessionId line ... do not check for now.
@@ -273,6 +274,7 @@ public class Server extends JFrame implements ActionListener {
       }
     } catch (Exception ex) {
       System.out.println("Exception caught: " + ex);
+      ex.printStackTrace();
       System.exit(0);
     }
     return (request_type);
@@ -291,6 +293,7 @@ public class Server extends JFrame implements ActionListener {
       // System.out.println("RTSP Server - Sent response to Client.");
     } catch (Exception ex) {
       System.out.println("Exception caught: " + ex);
+      ex.printStackTrace();
       System.exit(0);
     }
   }

@@ -47,7 +47,6 @@ public class Client {
     private static BufferedReader RTSPBufferedReader;
     private static BufferedWriter RTSPBufferedWriter;
     private static String VideoFileName; // video file to request to the server
-    private static String serverUri; // TODO Enter server uri
     private int RTSPSeqNb = 0; // Sequence number of RTSP messages within the session
     private int RTSPid = 0; // ID of the RTSP session (given by the RTSP Server)
 
@@ -310,6 +309,7 @@ public class Client {
                 // System.out.println("Nothing to read");
             } catch (IOException ioe) {
                 System.out.println("Exception caught: " + ioe);
+                ioe.printStackTrace();
             }
         }
     }
@@ -321,32 +321,37 @@ public class Client {
         int reply_code = 0;
 
         try {
+            String line = "";
             // parse status line and extract the reply_code:
-            String StatusLine = RTSPBufferedReader.readLine();
+            line = RTSPBufferedReader.readLine();
             // System.out.println("RTSP Client - Received from Server:");
-            System.out.println(StatusLine);
+            System.out.println(line);
 
-            StringTokenizer tokens = new StringTokenizer(StatusLine);
+            StringTokenizer tokens = new StringTokenizer(line);
             tokens.nextToken(); // skip over the RTSP version
             reply_code = Integer.parseInt(tokens.nextToken());
 
             // if reply code is OK get and print the 2 other lines
             if (reply_code == 200) {
-                String SeqNumLine = RTSPBufferedReader.readLine();
-                System.out.println(SeqNumLine);
+                line = RTSPBufferedReader.readLine();
+                System.out.println(line);
 
-                String SessionLine = RTSPBufferedReader.readLine();
-                System.out.println(SessionLine);
+                line = RTSPBufferedReader.readLine();
+                System.out.println(line);
 
                 // if state == INIT gets the Session Id from the SessionLine
-                tokens = new StringTokenizer(SessionLine);
+                tokens = new StringTokenizer(line);
                 tokens.nextToken(); // skip over the Session:
                 RTSPid = Integer.parseInt(tokens.nextToken());
             }
 
-            // TODO parse for end of response corresponding to servers behavior
+
+            do {
+                line = RTSPBufferedReader.readLine();
+            } while (!line.isEmpty());
         } catch (Exception ex) {
             System.out.println("Exception caught: " + ex);
+            ex.printStackTrace();
             System.exit(0);
         }
 
@@ -364,23 +369,27 @@ public class Client {
             // Use the RTSPBufferedWriter to write to the RTSP socket
 
             // write the request line:
-            RTSPBufferedWriter.write(String.format("%s %s RTSP/1.0" + CRLF, request_type, serverUri));
+            RTSPBufferedWriter.write(String.format("%s %s RTSP/1.0" + CRLF, request_type, VideoFileName));
 
             // write the CSeq line:
             RTSPBufferedWriter.write(String.format("CSeq %d" + CRLF, RTSPSeqNb));
 
             // check if request_type is equal to "SETUP" and in this case write the Transport: line
             // advertising to the server the port used to receive the RTP packets RTP_RCV_PORT
+            String nextLine = "";
             if (request_type.equals("SETUP")) {
-                RTSPBufferedWriter.write(String.format("Transport: RTP/UDP; client_port=%d", RTP_RCV_PORT));
+                nextLine = String.format("Transport: RTP/UDP; client_port=%d", RTP_RCV_PORT);
             } else { // otherwise, write the Session line from the RTSPid field
-                RTSPBufferedWriter.write(String.format("Session: %d", RTSPid));
+                nextLine = String.format("Session: %d", RTSPid);
             }
+            RTSPBufferedWriter.write(nextLine + CRLF);
+            RTSPBufferedWriter.write(CRLF);
 
             // send end of request corresponding to servers behavior
             RTSPBufferedWriter.flush();
         } catch (Exception ex) {
             System.out.println("Exception caught: " + ex);
+            ex.printStackTrace();
             System.exit(0);
         }
     }
