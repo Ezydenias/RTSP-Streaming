@@ -87,11 +87,9 @@ public class Client {
         iconLabel.setIcon(null);
 
         // frame layout
-        mainPanel.setLayout(null);
-        mainPanel.add(iconLabel);
-        mainPanel.add(buttonPanel);
-        iconLabel.setBounds(0, 0, 380, 280);
-        buttonPanel.setBounds(0, 280, 380, 50);
+        mainPanel.setLayout(new BorderLayout());
+        mainPanel.add(iconLabel, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.PAGE_END);
 
         f.getContentPane().add(mainPanel, BorderLayout.CENTER);
         f.setSize(new Dimension(390, 370));
