@@ -32,9 +32,12 @@ public class Server extends JFrame implements ActionListener {
   static int MJPEG_TYPE = 26; // RTP payload type for MJPEG video
   static int FRAME_PERIOD = 40; // Frame period of the video to stream, in ms
   static int VIDEO_LENGTH = 500; // length of the video in frames
+  static int FEC_TYPE = 127;
+  static int FECSize = 4;
 
   private Timer timer; // timer used to send the images at the video frame rate
   private JSpinner frameDropSpinner;
+  private FECpacket FEC;
   byte[] buf; // buffer used to store the images to send to the client
 
   // RTSP variables
@@ -80,6 +83,7 @@ public class Server extends JFrame implements ActionListener {
     // allocate memory for the sending buffer
     buf = new byte[15000];
 
+    FEC=new FECpacket();
     // Handler to close the main window
     addWindowListener(
         new WindowAdapter() {
@@ -246,6 +250,8 @@ public class Server extends JFrame implements ActionListener {
         byte[] packet_bits = new byte[packet_length];
         rtp_packet.getpacket(packet_bits);
 
+
+
         // send the packet as a DatagramPacket over the UDP socket
         senddp = new DatagramPacket(packet_bits, packet_length, ClientIPAddr, RTP_dest_port);
 
@@ -262,6 +268,27 @@ public class Server extends JFrame implements ActionListener {
 
         // update GUI
         label.setText("Send frame #" + imagenb);
+
+
+
+        if(imagenb%FECSize==0){
+          FEC.setdata(packet_bits,packet_length);
+          image_length=FEC.getdata(buf);
+          RTPpacket fec_packet =
+                  new RTPpacket(FEC_TYPE, imagenb, imagenb * FRAME_PERIOD, buf, image_length);
+          packet_length = fec_packet.getlength();
+          packet_bits = new byte[packet_length];
+          fec_packet.getpacket(packet_bits);
+          senddp = new DatagramPacket(packet_bits, packet_length, ClientIPAddr, RTP_dest_port);
+          RTPsocket.send(senddp);
+          // System.out.println("Send frame #"+imagenb);
+          // print the header bitstream
+          fec_packet.printheader();
+          label.setText("Send FEC #" + imagenb);
+        }else{
+         FEC.setdata(packet_bits,packet_length);
+        }
+
       } catch (Exception ex) {
         System.out.println("Exception caught: " + ex);
         ex.printStackTrace();
