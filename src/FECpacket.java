@@ -25,21 +25,13 @@ public class FECpacket {
     public FECpacket() {
         payload = new byte[15000];
         FEC_Packet_Size=0;
-
-
-
-
-
     }
 
     // RECEIVER ------------------------------------
     public FECpacket(int FEC_group) {
-
-
-
-
-
         this.FEC_group = FEC_group;
+        mediastack = new Vector<byte[]>();
+        fecstack = new Vector<byte[]>();
     }
 
     // ----------------------------------------------
@@ -84,27 +76,63 @@ public class FECpacket {
     // ------------------------------------------------
     // speichert UDP-Payload, Nr. des Bildes
     public void rcvdata(int nr, byte[] data) {
-        byte[] temp = new byte[0];
+        byte[] temp = new byte[15000];
         for (int i = 0; i < data.length; i++) {
             temp[i] = data[i];
         }
+        while(mediastack.size()<nr){
+            byte[] empty = new byte[5];
+            mediastack.add(empty);
+        }
         mediastack.add(temp);
-
     }
 
     // speichert FEC-Daten, Nr. eines Bildes der Gruppe
     public void rcvfec(int nr, byte[] data) {
-        byte[] temp = new byte[0];
+        byte[] temp = new byte[15000];
         for (int i = 0; i < data.length; i++) {
             temp[i] = data[i];
         }
+
+        while((mediastack.size()-4)<(fecstack.size()*FEC_group)){
+            byte[] empty = new byte[5];
+            fecstack.add(empty);
+        }
+
         fecstack.add(temp);
+
+        getjpeg();
+
     }
 
     // übergibt vorhandenes/korrigiertes Paket oder Fehler (null)
-    public byte[] getjpeg(int nr) {
-        byte[] result = new byte[0];
-        return result;
+    public void getjpeg() {
+        byte[] result = new byte[15000];
+        for (int j = 0; j < result.length; j++) {
+            fecstack.lastElement()[j] = result[j];
+        }
+
+
+        int lost=0, packagedLost=0;
+        for(int i = (fecstack.size()-1)*FEC_group; i<=fecstack.size()*FEC_group-1;i++){
+            if(mediastack.elementAt(i).length<100){
+                lost = i;
+                packagedLost++;
+            }else{
+                mediastack.set(lost,result);
+                /*for (int j = 0; j < mediastack.elementAt(j).length; j++) {
+                    result[j] = (byte) (result[j] ^ mediastack.elementAt(i)[j]);
+                }*/
+
+            }
+        }
+        /*if(packagedLost==1){
+            for (int j = 0; j < result.length; j++) {
+
+                mediastack.elementAt(lost)[j] = result[j];
+            }
+
+        }*/
     }
 
     // für Statistik, Anzahl der korrigierten Pakete

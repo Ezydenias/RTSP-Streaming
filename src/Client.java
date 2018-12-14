@@ -27,6 +27,7 @@ public class Client {
     private JLabel iconLabel = new JLabel();
     private JLabel statsLabel = new JLabel();
     private ImageIcon icon;
+    private FECpacket cue;
 
     // Statistical variables
     private int droppedPackages = 0;
@@ -64,6 +65,7 @@ public class Client {
     // Video constants:
     // ------------------
     private static int MJPEG_TYPE = 26; // RTP payload type for MJPEG video
+    private static int FEC_TYPE = 127;
 
     // --------------------------
     // Constructor
@@ -91,6 +93,9 @@ public class Client {
         playButton.addActionListener(new playButtonListener());
         pauseButton.addActionListener(new pauseButtonListener());
         tearButton.addActionListener(new tearButtonListener());
+
+        //fec handler
+        cue = new FECpacket(4);
 
         // Image display label
         iconLabel.setIcon(null);
@@ -326,6 +331,9 @@ public class Client {
                     // get the payload bitstream from the RTPpacket object
                     int payload_length = rtp_packet.getpayload_length();
                     byte[] payload = new byte[payload_length];
+
+                    cue.rcvdata(rtp_packet.getsequencenumber(),payload);
+
                     rtp_packet.getpayload(payload);
 
                     // get an Image object from the payload bitstream
@@ -335,6 +343,13 @@ public class Client {
                     // display the image as an ImageIcon object
                     icon = new ImageIcon(image);
                     iconLabel.setIcon(icon);
+                }
+                else if (rtp_packet.PayloadType == FEC_TYPE) {
+                    // get the payload bitstream from the RTPpacket object
+                    int payload_length = rtp_packet.getpayload_length();
+                    byte[] payload = new byte[payload_length];
+
+                    cue.rcvfec(rtp_packet.getsequencenumber(), payload);
                 }
             } catch (InterruptedIOException iioe) {
                 // System.out.println("Nothing to read");
