@@ -22,6 +22,8 @@ public class Client {
     private JButton playButton = new JButton("Play");
     private JButton pauseButton = new JButton("Pause");
     private JButton tearButton = new JButton("Teardown");
+    private JButton optionsButton = new JButton("Options");
+    private JButton describeButtons = new JButton("Describe");
     private JPanel mainPanel = new JPanel();
     private JPanel buttonPanel = new JPanel();
     private JLabel iconLabel = new JLabel();
@@ -62,6 +64,8 @@ public class Client {
 
     private static final String CRLF = "\r\n";
 
+    private static String rtspBody;
+
     // Video constants:
     // ------------------
     private static int MJPEG_TYPE = 26; // RTP payload type for MJPEG video
@@ -89,10 +93,14 @@ public class Client {
         buttonPanel.add(playButton);
         buttonPanel.add(pauseButton);
         buttonPanel.add(tearButton);
+        buttonPanel.add(optionsButton);
+        buttonPanel.add(describeButtons);
         setupButton.addActionListener(new setupButtonListener());
         playButton.addActionListener(new playButtonListener());
         pauseButton.addActionListener(new pauseButtonListener());
         tearButton.addActionListener(new tearButtonListener());
+        optionsButton.addActionListener(new optionsButtonListener());
+        describeButtons.addActionListener(new describeButtonListener());
 
         //fec handler
         cue = new FECpacket(4);
@@ -251,6 +259,30 @@ public class Client {
         }
     }
 
+    class optionsButtonListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            System.out.println("Options Button pressed!");
+            send_RTSP_request("OPTIONS");
+            if (parse_server_response() != 200) System.out.println("Invalid Server Response");
+            else {
+                iconLabel.setText("<html>" + rtspBody.replace(CRLF, "<br>"));
+            }
+        }
+    }
+
+    class describeButtonListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            System.out.println("Describe Button pressed!");
+            send_RTSP_request("DESCRIBE");
+            if (parse_server_response() != 200) System.out.println("Invalid Server Response");
+            else {
+                iconLabel.setText("<html>" + rtspBody.replace(CRLF, "<br>"));
+            }
+        }
+    }
+
     // Handler for Teardown button
     // -----------------------
     class tearButtonListener implements ActionListener {
@@ -401,9 +433,11 @@ public class Client {
                 RTSPid = Integer.parseInt(tokens.nextToken());
             }
 
-
+            rtspBody = "";
             do {
                 line = RTSPBufferedReader.readLine();
+                rtspBody += line + CRLF;
+                System.out.println(line);
             } while (!line.isEmpty());
         } catch (Exception ex) {
             System.out.println("Exception caught: " + ex);

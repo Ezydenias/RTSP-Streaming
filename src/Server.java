@@ -215,7 +215,6 @@ public class Server extends JFrame implements ActionListener {
     private void handleDescribe() {
         String[] body = {
                 "Content-Type: application/sdp",
-                "",
                 "v=0",
                 "o=- " + RTSP_ID + " 1 IN IP4 127.0.0.1",
                 "s=Demo Movie",
