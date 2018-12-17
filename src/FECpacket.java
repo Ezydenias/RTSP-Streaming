@@ -8,9 +8,7 @@ public class FECpacket {
     static int FEC_TYPE = 127; //FEX Payload type
 
 
-
-
-    int FEC_group;       // FEC-Gruppengröße
+    int fecGroupSize;       // FEC-Gruppengröße
     private int FEC_Packet_Size;
 
     public int payload_size;
@@ -18,20 +16,22 @@ public class FECpacket {
 
     public byte[] payload;
 
-    Vector<byte[]> mediastack; // Puffer für Medienpakete
-    Vector<byte[]> fecstack;   // Puffer für FEC-Pakete
+    Vector<byte[]> rtpStack; // Puffer für Medienpakete
+    Vector<byte[]> fecStack;   // Puffer für FEC-Pakete
+
+    int correctedCount = 0;
 
     // SENDER --------------------------------------
     public FECpacket() {
         payload = new byte[15000];
-        FEC_Packet_Size=0;
+        FEC_Packet_Size = 0;
     }
 
     // RECEIVER ------------------------------------
-    public FECpacket(int FEC_group) {
-        this.FEC_group = FEC_group;
-        mediastack = new Vector<byte[]>();
-        fecstack = new Vector<byte[]>();
+    public FECpacket(int fecGroupSize) {
+        this.fecGroupSize = fecGroupSize;
+        rtpStack = new Vector<byte[]>();
+        fecStack = new Vector<byte[]>();
     }
 
     // ----------------------------------------------
@@ -41,33 +41,28 @@ public class FECpacket {
     // speichert Nutzdaten zur FEC-Berechnung
     public void setdata(byte[] data, int data_length) {
 
-        if(FEC_Packet_Size==0){
-            for (int i = 0; i < data_length; i++) {
-                payload[i] = data[i];
-            }
-        }
-        else {
+        if (FEC_Packet_Size == 0) {
+            FEC_Packet_Size = data_length;
+            payload = Arrays.copyOf(data, FEC_Packet_Size);
+        } else {
+            FEC_Packet_Size = Math.max(FEC_Packet_Size, data_length);
+            payload = Arrays.copyOf(payload, FEC_Packet_Size);
             for (int i = 0; i < data_length; i++) {
                 payload[i] = (byte) (payload[i] ^ data[i]);
             }
-        }
-        if(FEC_Packet_Size<data_length) {
-            FEC_Packet_Size = data_length;
         }
     }
 
     // holt fertiges FEC-Paket, Rückgabe: Paketlänge
     public int getdata(byte[] data) {
-
-
+        int result = FEC_Packet_Size;
         for (int i = 0; i < FEC_Packet_Size; i++) {
             data[i] = payload[i];
-            payload[i]=0;
         }
 
-        FEC_Packet_Size=0;
+        FEC_Packet_Size = 0;
 
-        return (payload_size);
+        return result;
     }
 
 
@@ -76,67 +71,65 @@ public class FECpacket {
     // ------------------------------------------------
     // speichert UDP-Payload, Nr. des Bildes
     public void rcvdata(int nr, byte[] data) {
-        byte[] temp = new byte[15000];
-        for (int i = 0; i < data.length; i++) {
-            temp[i] = data[i];
+        while (rtpStack.size() < nr + 1) {
+            rtpStack.add(new byte[1]);
         }
-        while(mediastack.size()<nr){
-            byte[] empty = new byte[5];
-            mediastack.add(empty);
-        }
-        mediastack.add(temp);
+        rtpStack.set(nr, Arrays.copyOf(data, data.length));
     }
 
     // speichert FEC-Daten, Nr. eines Bildes der Gruppe
     public void rcvfec(int nr, byte[] data) {
-        byte[] temp = new byte[15000];
-        for (int i = 0; i < data.length; i++) {
-            temp[i] = data[i];
+        while (fecStack.size() < nr + 1) {
+            fecStack.add(new byte[1]);
         }
-
-        while((mediastack.size()-4)<(fecstack.size()*FEC_group)){
-            byte[] empty = new byte[5];
-            fecstack.add(empty);
+        fecStack.set(nr, Arrays.copyOf(data, data.length));
+        while (rtpStack.size() < nr + 1) {
+            rtpStack.add(new byte[1]);
         }
+    }
 
-        fecstack.add(temp);
-
-        getjpeg();
-
+    private byte[] getFecPackage(int nr) {
+        byte[] result = fecStack.get(nr);
+        return Arrays.copyOf(result, result.length);
     }
 
     // übergibt vorhandenes/korrigiertes Paket oder Fehler (null)
-    public void getjpeg() {
-        byte[] result = new byte[15000];
-        for (int j = 0; j < result.length; j++) {
-            fecstack.lastElement()[j] = result[j];
-        }
-
-
-        int lost=0, packagedLost=0;
-        for(int i = (fecstack.size()-1)*FEC_group; i<=fecstack.size()*FEC_group-1;i++){
-            if(mediastack.elementAt(i).length<100){
-                lost = i;
-                packagedLost++;
-            }else{
-                mediastack.set(lost,result);
-                /*for (int j = 0; j < mediastack.elementAt(j).length; j++) {
-                    result[j] = (byte) (result[j] ^ mediastack.elementAt(i)[j]);
-                }*/
-
+    public byte[] getjpeg(int nr) {
+        byte[] result = rtpStack.get(nr);
+        if (result.length == 1) {
+            int fecNr = getFecNumber(nr);
+            int existing = fecGroupSize;
+            if (fecStack.size() >= fecNr) {
+                byte[] fecData = getFecPackage(fecNr);
+                for (int i = fecNr - fecGroupSize + 1; i <= fecNr; i++) {
+                    byte[] frame = rtpStack.get(i);
+                    if (frame.length > 1) {
+                        for (int n = 0; n < frame.length; n++) {
+                            fecData[n] = (byte) (fecData[n] ^ frame[n]);
+                        }
+                    } else {
+                        existing--;
+                    }
+                }
+                if (existing >= fecGroupSize - 1) {
+                    rtpStack.set(nr, fecData);
+                    result = Arrays.copyOf(fecData, fecData.length);
+                    correctedCount++;
+                }
             }
         }
-        /*if(packagedLost==1){
-            for (int j = 0; j < result.length; j++) {
+        return result;
+    }
 
-                mediastack.elementAt(lost)[j] = result[j];
-            }
-
-        }*/
+    private int getFecNumber(int rtpNr) {
+        while (rtpNr % fecGroupSize != 0) {
+            rtpNr++;
+        }
+        return rtpNr;
     }
 
     // für Statistik, Anzahl der korrigierten Pakete
     public int getNrCorrected() {
-        return 0;
+        return correctedCount;
     }
 }

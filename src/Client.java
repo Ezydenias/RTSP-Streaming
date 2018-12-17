@@ -288,6 +288,10 @@ public class Client {
 
         private int lastReceivedPackage = 0;
 
+        private int currentFrame = 1;
+
+        private int retries = 0;
+
         public void actionPerformed(ActionEvent e) {
 
             // Construct a DatagramPacket to receive data from the UDP socket
@@ -321,10 +325,9 @@ public class Client {
                 // Putting all of this in one format string makes it utterly unreadable
                 String stats =
                         String.format("Received: %d", receivedPackages) + "<br>" +
-                        String.format("Dropped: %d (%.1f%%)", droppedPackages, droppedPackages / (double)(receivedPackages+droppedPackages) * 100) + "<br>" +
-                        String.format("Corrected: %d", correctedPackages) + "<br>" +
-                        String.format("Uncorrectable: %d", uncorrectablePackages)
-                ;
+                                String.format("Dropped: %d (%.1f%%)", droppedPackages, droppedPackages / (double) (receivedPackages + droppedPackages) * 100) + "<br>" +
+                                String.format("Corrected: %d", cue.getNrCorrected()) + "<br>" +
+                                String.format("Uncorrectable: %d", uncorrectablePackages);
                 statsLabel.setText("<html>" + stats);
 
                 if (rtp_packet.PayloadType == MJPEG_TYPE) {
@@ -332,23 +335,30 @@ public class Client {
                     int payload_length = rtp_packet.getpayload_length();
                     byte[] payload = new byte[payload_length];
 
-                    cue.rcvdata(rtp_packet.getsequencenumber(),payload);
-
                     rtp_packet.getpayload(payload);
+                    cue.rcvdata(rtp_packet.getsequencenumber(), payload);
+                    payload = cue.getjpeg(currentFrame);
 
-                    // get an Image object from the payload bitstream
-                    Toolkit toolkit = Toolkit.getDefaultToolkit();
-                    Image image = toolkit.createImage(payload, 0, payload_length);
+                    if (payload.length > 1) {
+                        // get an Image object from the payload bitstream
+                        Toolkit toolkit = Toolkit.getDefaultToolkit();
+                        Image image = toolkit.createImage(payload, 0, payload_length);
 
-                    // display the image as an ImageIcon object
-                    icon = new ImageIcon(image);
-                    iconLabel.setIcon(icon);
-                }
-                else if (rtp_packet.PayloadType == FEC_TYPE) {
+                        // display the image as an ImageIcon object
+                        icon = new ImageIcon(image);
+                        iconLabel.setIcon(icon);
+                        currentFrame++;
+                    } else {
+                        retries++;
+                        if (retries > cue.fecGroupSize) {
+                            currentFrame = rtp_packet.getsequencenumber();
+                        }
+                    }
+                } else if (rtp_packet.PayloadType == FEC_TYPE) {
                     // get the payload bitstream from the RTPpacket object
                     int payload_length = rtp_packet.getpayload_length();
                     byte[] payload = new byte[payload_length];
-
+                    rtp_packet.getpayload(payload);
                     cue.rcvfec(rtp_packet.getsequencenumber(), payload);
                 }
             } catch (InterruptedIOException iioe) {
