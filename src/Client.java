@@ -399,7 +399,7 @@ public class Client {
 
                         // display the image as an ImageIcon object
                         icon = new ImageIcon(image);
-                        iconLabel.setIcon(icon);
+                        icon.paintIcon(iconLabel, iconLabel.getGraphics(), 0, 0);
                         currentFrame++;
                     } else {
                         retries++;
