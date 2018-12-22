@@ -10,6 +10,8 @@ import java.util.*;
 import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.Timer;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 public class Server extends JFrame implements ActionListener {
 
@@ -37,6 +39,7 @@ public class Server extends JFrame implements ActionListener {
 
     private Timer timer; // timer used to send the images at the video frame rate
     private JSpinner frameDropSpinner;
+    private JSpinner fecSizeSpinner;
     private FECpacket FEC;
     byte[] buf; // buffer used to store the images to send to the client
 
@@ -66,6 +69,15 @@ public class Server extends JFrame implements ActionListener {
     static Random rand;
 
     static final String CRLF = "\r\n";
+
+    class fecSizeChangeListener implements ChangeListener {
+
+      @Override
+      public void stateChanged(ChangeEvent e) {
+        FECSize = (int) fecSizeSpinner.getModel().getValue();
+        System.out.println("FEC group size is now " + FECSize);
+      }
+    }
 
     // --------------------------------
     // Constructor
@@ -100,9 +112,14 @@ public class Server extends JFrame implements ActionListener {
         label = new JLabel("Send frame #        ", JLabel.CENTER);
         getContentPane().add(label);
 
-        SpinnerModel model = new SpinnerNumberModel(0.1, 0.00, 1.00, 0.05);
-        frameDropSpinner = new JSpinner(model);
+        SpinnerModel frameDropModel = new SpinnerNumberModel(0.1, 0.00, 1.00, 0.05);
+        frameDropSpinner = new JSpinner(frameDropModel);
         getContentPane().add(frameDropSpinner);
+
+        SpinnerModel fecSizeModel = new SpinnerNumberModel(4, 2, 32, 1);
+        fecSizeSpinner = new JSpinner(fecSizeModel);
+        fecSizeSpinner.addChangeListener(new fecSizeChangeListener());
+        getContentPane().add(fecSizeSpinner);
     }
 
     // ------------------------------------
