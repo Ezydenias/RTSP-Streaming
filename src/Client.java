@@ -403,6 +403,7 @@ public class Client {
                         currentFrame++;
                     } else {
                         retries++;
+                        uncorrectablePackages++;
                         if (retries > cue.fecGroupSize) {
                             currentFrame = rtp_packet.getsequencenumber();
                         }
