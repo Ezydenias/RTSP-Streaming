@@ -29,12 +29,11 @@ public class Client {
     private JLabel iconLabel = new JLabel();
     private JLabel statsLabel = new JLabel();
     private ImageIcon icon;
-    private FECpacket cue;
+    private FECpacket cue = null;
 
     // Statistical variables
     private int droppedPackages = 0;
     private int receivedPackages = 0;
-    private int correctedPackages = 0; // Packages we could correct
     private int uncorrectablePackages = 0; // Packages we couldn't correct
 
     // RTP variables:
@@ -103,7 +102,7 @@ public class Client {
         describeButtons.addActionListener(new describeButtonListener());
 
         //fec handler
-        cue = new FECpacket(4);
+        //cue = new FECpacket(4);
 
         // Image display label
         iconLabel.setIcon(null);
@@ -187,6 +186,28 @@ public class Client {
 
                 // init RTSP sequence number
                 RTSPSeqNb = 1;
+
+                // Request a description (used for FEC Size)
+                send_RTSP_request("DESCRIBE");
+                if (parse_server_response() != 200) {
+                    System.out.println("Invalid Server Response");
+                    System.exit(0);
+                } else {
+                    int FECGroupSize = 2;
+                    StringTokenizer tokenizer = new StringTokenizer(rtspBody, "=" + CRLF);
+                    while (tokenizer.hasMoreTokens()) {
+                        String token = tokenizer.nextToken();
+                        if (token.equals("a")) { // Search for a general sdp attribute
+                            token = tokenizer.nextToken();
+                            if (token.startsWith("FEC:")) { // Check if it is our FEC attribute
+                                FECGroupSize = new Integer(token.substring(4)); // Convert everything after the : into an int
+                                break;
+                            }
+                        }
+                    }
+                    cue = new FECpacket(FECGroupSize);
+                }
+
 
                 // Send SETUP message to the server
                 send_RTSP_request("SETUP");

@@ -83,7 +83,7 @@ public class Server extends JFrame implements ActionListener {
         // allocate memory for the sending buffer
         buf = new byte[15000];
 
-        FEC = new FECpacket();
+        FEC = new FECpacket(FECSize);
         // Handler to close the main window
         addWindowListener(
                 new WindowAdapter() {
@@ -219,7 +219,8 @@ public class Server extends JFrame implements ActionListener {
                 "o=- " + RTSP_ID + " 1 IN IP4 127.0.0.1",
                 "s=Demo Movie",
                 "i=HTW Dresden RTSP demo movie",
-                "m=video 25000 udp " + MJPEG_TYPE
+                "m=video 25000 udp " + MJPEG_TYPE,
+                "a=FEC:" + FECSize
         };
         send_RTSP_response(body);
     }

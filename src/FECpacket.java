@@ -21,14 +21,10 @@ public class FECpacket {
 
     int correctedCount = 0;
 
-    // SENDER --------------------------------------
-    public FECpacket() {
-        payload = new byte[15000];
-        FEC_Packet_Size = 0;
-    }
-
     // RECEIVER ------------------------------------
     public FECpacket(int fecGroupSize) {
+        payload = new byte[15000];
+        FEC_Packet_Size = 0;
         this.fecGroupSize = fecGroupSize;
         rtpStack = new Vector<byte[]>();
         fecStack = new Vector<byte[]>();
