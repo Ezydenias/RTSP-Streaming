@@ -3,8 +3,6 @@ Client
 usage: java Client [Server hostname] [Server RTSP listening port] [Video file requested]
 ---------------------- */
 
-import com.sun.xml.internal.ws.util.StringUtils;
-
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -40,9 +38,11 @@ public class Client {
     // ----------------
     private DatagramPacket rcvdp; // UDP packet received from the server
     private DatagramSocket RTPsocket; // socket to be used to send and receive UDP packets
+    private Vector<Image> renderBuffer;
     private static int RTP_RCV_PORT = 25000; // port where the client will receive the RTP packets
 
-    private Timer timer; // timer used to receive data from the UDP socket
+    private Timer recvTimer; // timer used to receive data from the UDP socket
+    private Timer renderTimer; // timer used to receive data from the UDP socket
     private byte[] buf; // buffer used to store data received from the server
 
     // RTSP variables
@@ -86,6 +86,9 @@ public class Client {
                     }
                 });
 
+        // Allocate render buffer.
+        renderBuffer = new Vector<Image>();
+
         // Buttons
         buttonPanel.setLayout(new GridLayout(1, 0));
         buttonPanel.add(setupButton);
@@ -122,9 +125,16 @@ public class Client {
 
         // init timer
         // --------------------------
-        timer = new Timer(20, new timerListener());
-        timer.setInitialDelay(0);
-        timer.setCoalesce(true);
+        recvTimer = new Timer(20, new timerListener());
+        recvTimer.setInitialDelay(0);
+        recvTimer.setCoalesce(true);
+
+        // init render timer
+        //        // --------------------------
+        renderTimer = new Timer(20, new renderListener());
+        renderTimer.setInitialDelay(2000);
+        renderTimer.setCoalesce(true);
+
 
         // allocate enough memory for the buffer used to receive data from the server
         buf = new byte[15000];
@@ -244,8 +254,9 @@ public class Client {
                     state = PLAYING;
                     System.out.println("New RTSP state: PLAYING");
 
-                    // start the timer
-                    timer.start();
+                    // start the timers
+                    recvTimer.start();
+                    renderTimer.start();
                 }
             } // else if state != READY then do nothing
         }
@@ -272,8 +283,9 @@ public class Client {
                     state = READY;
                     System.out.println("New RTSP state: READY");
 
-                    // stop the timer
-                    timer.stop();
+                    // stop the timers
+                    recvTimer.stop();
+                    renderTimer.stop();
                 }
             }
             // else if state != PLAYING then do nothing
@@ -324,11 +336,25 @@ public class Client {
                 state = TEARDOWN;
                 System.out.println("New RTSP state: TEARDOWN");
 
-                // stop the timer
-                timer.stop();
+                // stop the timers
+                recvTimer.stop();
+                renderTimer.stop();
 
                 // exit
                 System.exit(0);
+            }
+        }
+    }
+
+    class renderListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            if (renderBuffer.size() > 0) {
+                Image image = renderBuffer.remove(0);
+                // display the image as an ImageIcon object
+                icon = new ImageIcon(image);
+                icon.paintIcon(iconLabel, iconLabel.getGraphics(), 0, 0);
             }
         }
     }
@@ -344,6 +370,15 @@ public class Client {
         private int currentFrame = 1;
 
         private int retries = 0;
+
+        private void payloadToBuffer(byte[] payload) {
+            if (payload.length > 1) {
+                // get an Image object from the payload bitstream
+                Toolkit toolkit = Toolkit.getDefaultToolkit();
+                Image image = toolkit.createImage(payload, 0, payload.length);
+                renderBuffer.add(image);
+            }
+        }
 
         public void actionPerformed(ActionEvent e) {
 
@@ -393,19 +428,17 @@ public class Client {
                     payload = cue.getjpeg(currentFrame);
 
                     if (payload.length > 1) {
-                        // get an Image object from the payload bitstream
-                        Toolkit toolkit = Toolkit.getDefaultToolkit();
-                        Image image = toolkit.createImage(payload, 0, payload_length);
-
-                        // display the image as an ImageIcon object
-                        icon = new ImageIcon(image);
-                        icon.paintIcon(iconLabel, iconLabel.getGraphics(), 0, 0);
+                        payloadToBuffer(payload);
                         currentFrame++;
                     } else {
                         retries++;
                         uncorrectablePackages++;
                         if (retries > cue.fecGroupSize) {
-                            currentFrame = rtp_packet.getsequencenumber();
+                            while (currentFrame < rtp_packet.getsequencenumber()) {
+                                payloadToBuffer(payload);
+                                currentFrame++;
+                            }
+                            retries = 0;
                         }
                     }
                 } else if (rtp_packet.PayloadType == FEC_TYPE) {
