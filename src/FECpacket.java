@@ -22,6 +22,14 @@ public class FECpacket {
     int correctedCount = 0;
 
     // RECEIVER ------------------------------------
+
+    /**
+     * Constructor des FECpacket.
+     *
+     * Hier werden Stecks und Puffer Innitialisiert
+     *
+     * @param fecGroupSize
+     */
     public FECpacket(int fecGroupSize) {
         payload = new byte[15000];
         FEC_Packet_Size = 0;
@@ -34,7 +42,12 @@ public class FECpacket {
     // *** SENDER ***
     // ----------------------------------------------
 
-    // speichert Nutzdaten zur FEC-Berechnung
+    /**
+     * Nimmt die Payload eines RTP Paketes und Rechnet sie in den FEC Puffer ein.
+     *
+     * @param data
+     * @param data_length
+     */
     public void setdata(byte[] data, int data_length) {
 
         if (FEC_Packet_Size == 0) {
@@ -49,7 +62,12 @@ public class FECpacket {
         }
     }
 
-    // holt fertiges FEC-Paket, Rückgabe: Paketlänge
+    /**
+     * Gibt den aktuellen Inhalt des FEC Puffers zurück und ressetet ihn.
+     *
+     * @param data
+     * @return
+     */
     public int getdata(byte[] data) {
         int result = FEC_Packet_Size;
         for (int i = 0; i < FEC_Packet_Size; i++) {
@@ -65,7 +83,15 @@ public class FECpacket {
     // ------------------------------------------------
     // *** RECEIVER ***
     // ------------------------------------------------
-    // speichert UDP-Payload, Nr. des Bildes
+
+    /**
+     * Legt RTP Payload im RTP Stack ab.
+     *
+     * Eventuell fehlende Pakete werden durch Leerpakete abgebildet.
+     *
+     * @param nr
+     * @param data
+     */
     public void rcvdata(int nr, byte[] data) {
         while (rtpStack.size() < nr + 1) {
             rtpStack.add(new byte[1]);
@@ -73,7 +99,14 @@ public class FECpacket {
         rtpStack.set(nr, Arrays.copyOf(data, data.length));
     }
 
-    // speichert FEC-Daten, Nr. eines Bildes der Gruppe
+    /**
+     * Legt FEC Payload auf den FEC Stack
+     *
+     * Eventuell fehlende Pakete werden durch Leerpakete abgebildet.
+     *
+     * @param nr
+     * @param data
+     */
     public void rcvfec(int nr, byte[] data) {
         while (fecStack.size() < nr + 1) {
             fecStack.add(new byte[1]);
@@ -84,12 +117,25 @@ public class FECpacket {
         }
     }
 
+    /**
+     * Getter für ein FEC Paket vom Stack
+     *
+     * @param nr
+     * @return
+     */
     private byte[] getFecPackage(int nr) {
         byte[] result = fecStack.get(nr);
         return Arrays.copyOf(result, result.length);
     }
 
-    // übergibt vorhandenes/korrigiertes Paket oder Fehler (null)
+    /**
+     * Hohlt eine JPEG Payload vom RTP Stack.
+     *
+     * Eventuel nicht verhandene Pakete werden versucht aus FEC Daten und anderen Paketen wiederherzustellen.
+     *
+     * @param nr
+     * @return
+     */
     public byte[] getjpeg(int nr) {
         byte[] result = rtpStack.get(nr);
         if (result.length == 1) {
@@ -117,6 +163,12 @@ public class FECpacket {
         return result;
     }
 
+    /**
+     * Berechnet die Nächste FEC Nummer für eine Gegebene RTP Nummer
+     *
+     * @param rtpNr
+     * @return
+     */
     private int getFecNumber(int rtpNr) {
         while (rtpNr % fecGroupSize != 0) {
             rtpNr++;
@@ -124,7 +176,11 @@ public class FECpacket {
         return rtpNr;
     }
 
-    // für Statistik, Anzahl der korrigierten Pakete
+    /**
+     * Getter für die Anzahl der Korrigierten Packete
+     *
+     * @return
+     */
     public int getNrCorrected() {
         return correctedCount;
     }
